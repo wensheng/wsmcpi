@@ -2,6 +2,7 @@ __pycache__/
 bukkit/bin/
 bukkit/target/
 bukkit/lib/*.jar
+bukkit/dependency-reduced-pom.xml
 # idea
 out
 *.ipr

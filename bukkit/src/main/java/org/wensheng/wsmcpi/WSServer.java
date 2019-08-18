@@ -23,7 +23,7 @@ import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
 
 public class WSServer extends WebSocketServer {
-	Map<WebSocket, RemoteSession> handlers;
+	private Map<WebSocket, RemoteSession> handlers;
     private WSMCPI plugin;
 	private static final Logger LOGGER = LogManager.getLogger();
 	
@@ -39,6 +39,10 @@ public class WSServer extends WebSocketServer {
 		//setConnectionLostTimeout(0);
 		//setConnectionLostTimeout(100);
 	}
+
+    public Map<WebSocket, RemoteSession> getHandlers(){
+        return handlers;
+    }
 
 	@Override
 	public void onOpen(final WebSocket conn, ClientHandshake handshake ) {

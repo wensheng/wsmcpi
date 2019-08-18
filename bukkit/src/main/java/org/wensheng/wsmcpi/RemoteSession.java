@@ -86,6 +86,10 @@ public class RemoteSession {
     }
 
     protected void handleLine(String line) {
+        if(line.indexOf("(") == -1 || line.indexOf(")") == -1){
+           socket.send("Wrong format");
+           return;
+        }
         String methodName = line.substring(0, line.indexOf("("));
         //split string into args, handles , inside " i.e. ","
         String[] args = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",");

@@ -28,6 +28,7 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.java_websocket.WebSocket;
 
 public class WSMCPI extends JavaPlugin implements Listener{
     public final Logger logger = Logger.getLogger("Minecraft");
@@ -121,14 +122,12 @@ public class WSMCPI extends JavaPlugin implements Listener{
     
     private class TickHandler implements Runnable {
         public void run() {
-            Iterator<RemoteSession> sI = sessions.iterator();
-            while(sI.hasNext()) {
-                RemoteSession s = sI.next();
-                if (s.pendingRemoval) {
-                    s.close();
-                    sI.remove();
-                } else {
-                    s.tick();
+            for(RemoteSession session: wsServer.getHandlers().values()){
+                if(session.pendingRemoval==true){
+                    session.close();
+                    //wsServer.getHandlers().remove(entry);
+                }else{
+                    session.tick();
                 }
             }
         }
