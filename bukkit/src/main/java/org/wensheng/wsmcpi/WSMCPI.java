@@ -43,31 +43,6 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public Player hostPlayer = null;
     private WSServer wsServer;
     
-    private void save_resources(){
-        File py_init_file = new File(getDataFolder(), "config.yml");
-        if(!py_init_file.exists()){
-            this.saveResource("config.yml", false);
-        }
-        File mcpiFolder = new File(getDataFolder(), "mcpi");
-        if(!mcpiFolder.exists()){
-            mcpiFolder.mkdir();
-            this.saveResource("mcpi/block.py", false);
-            this.saveResource("mcpi/connection.py", false);
-            this.saveResource("mcpi/event.py", false);
-            this.saveResource("mcpi/entity.py", false);
-            this.saveResource("mcpi/minecraft.py", false);
-            this.saveResource("mcpi/pycmdsvr.py", false);
-            this.saveResource("mcpi/util.py", false);
-            this.saveResource("mcpi/vec3.py", false);
-        }
-        File ppluginsFolder = new File(getDataFolder(), "pplugins");
-        if(!ppluginsFolder.exists()){
-            ppluginsFolder.mkdir();
-            this.saveResource("pplugins/README.txt", false);
-            this.saveResource("pplugins/examples.py", false);
-        }
-    }
-    
     public void onEnable(){
         this.saveDefaultConfig();
         int port = this.getConfig().getInt("port");
@@ -86,9 +61,6 @@ public class WSMCPI extends JavaPlugin implements Listener{
         getServer().getPluginManager().registerEvents(this, this);
         //setup the schedule to called the tick handler
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new TickHandler(), 1, 1);
-
-        this.save_resources();
-
     }
     
     public void onDisable(){
