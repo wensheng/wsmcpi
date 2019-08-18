@@ -41,12 +41,12 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public List<RemoteSession> sessions;
 
     public Player hostPlayer = null;
-    private WSServer wsServer;
+    private WSServer wsServer = null;
     
     public void onEnable(){
         this.saveDefaultConfig();
         int port = this.getConfig().getInt("port");
-        boolean start_pyserver = this.getConfig().getBoolean("start_pyserver");
+        //boolean start_pyserver = this.getConfig().getBoolean("start_pyserver");
         
         //setup session array
         sessions = new ArrayList<RemoteSession>();
@@ -65,22 +65,11 @@ public class WSMCPI extends JavaPlugin implements Listener{
     
     public void onDisable(){
         int port = this.getConfig().getInt("pysvr_port");
-        boolean start_pyserver = this.getConfig().getBoolean("start_pyserver");
-        if(port==0){
-            port = 32123;
-        }
-
-        if(start_pyserver){
+        if(wsServer != null){
             try {
-                Socket socket = new Socket("localhost", port);
-                DataOutputStream toPyServer = new DataOutputStream(socket.getOutputStream());
-                toPyServer.writeUTF("BYE");
-                logger.info("ask py server to shut itself down");
-                toPyServer.close();
-                socket.close();
-            } catch (Exception e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
+                wsServer.stop();
+            } catch (IOException | InterruptedException e){
+                logger.warning("Can not stop websocket server");
             }
         }
 
