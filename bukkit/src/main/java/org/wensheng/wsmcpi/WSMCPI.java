@@ -237,7 +237,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
 
     public boolean checkBanned(RemoteSession session) {
         Set<String> ipBans = getServer().getIPBans();
-        String sessionIp = session.getSocket().getInetAddress().getHostAddress();
+        String sessionIp = session.getSocket().getRemoteSocketAddress().getAddress().toString();
         return ipBans.contains(sessionIp);
     }
 

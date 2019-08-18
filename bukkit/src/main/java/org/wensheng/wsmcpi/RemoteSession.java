@@ -16,62 +16,29 @@ import org.bukkit.material.SimpleAttachableMaterialData;
 import org.java_websocket.WebSocket;
 
 public class RemoteSession {
-
     private Location origin;
-
     private WebSocket socket;
-
-    private BufferedReader in;
-
     private BufferedWriter out;
-    
-    private Thread inThread;
-    
     private Thread outThread;
-
     private ArrayDeque<String> inQueue = new ArrayDeque<String>();
-
-    private ArrayDeque<String> outQueue = new ArrayDeque<String>();
-
     public boolean running = true;
-
     public boolean pendingRemoval = false;
-
     public WSMCPI plugin;
-
     protected ArrayDeque<PlayerInteractEvent> interactEventQueue = new ArrayDeque<PlayerInteractEvent>();
-    
     protected ArrayDeque<AsyncPlayerChatEvent> chatPostedQueue = new ArrayDeque<AsyncPlayerChatEvent>();
-
     private int maxCommandsPerTick = 9000;
-
     private boolean closed = false;
-
     private Player attachedPlayer = null;
+    private final List<String> queuedCommands = Arrays.asList(new String[]{
+            "world.setBlock",
+            "world.setBlocks"
+    });
 
     public RemoteSession(WSMCPI plugin, WebSocket socket) throws IOException {
         this.socket = socket;
         this.plugin = plugin;
-        init();
-    }
-
-    public void init() throws IOException {
-        //socket.setTcpNoDelay(true);
-        //socket.setKeepAlive(true);
-        //socket.setTrafficClass(0x10);
-        this.in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-        this.out = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream()));
-        startThreads();
         plugin.getLogger().info("Opened connection to" + socket.getRemoteSocketAddress() + ".");
     }
-
-    protected void startThreads() {
-        inThread = new Thread(new InputThread());
-        inThread.start();
-        outThread = new Thread(new OutputThread());
-        outThread.start();
-    }
-
 
     public Location getOrigin() {
         return origin;
@@ -101,7 +68,10 @@ public class RemoteSession {
         int processedCount = 0;
         String message;
         while ((message = inQueue.poll()) != null) {
-            handleLine(message);
+            String methodName = message.substring(0, message.indexOf("("));
+            //split string into args, handles , inside " i.e. ","
+            String[] args = message.substring(message.indexOf("(") + 1, message.length() - 1).split(",");
+            handleCommand(methodName, args);
             processedCount++;
             if (processedCount >= maxCommandsPerTick) {
                 plugin.getLogger().warning("Over " + maxCommandsPerTick +
@@ -119,7 +89,11 @@ public class RemoteSession {
         String methodName = line.substring(0, line.indexOf("("));
         //split string into args, handles , inside " i.e. ","
         String[] args = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",");
-        handleCommand(methodName, args);
+        if(queuedCommands.contains(methodName)) {
+            inQueue.add(line);
+        }else{
+            handleCommand(methodName, args);
+        }
     }
 
     protected void handleCommand(String c, String[] args) {
@@ -493,12 +467,12 @@ public class RemoteSession {
 
         int minX, maxX, minY, maxY, minZ, maxZ;
         World world = pos1.getWorld();
-        minX = pos1.getBlockX() < pos2.getBlockX() ? pos1.getBlockX() : pos2.getBlockX();
-        maxX = pos1.getBlockX() >= pos2.getBlockX() ? pos1.getBlockX() : pos2.getBlockX();
-        minY = pos1.getBlockY() < pos2.getBlockY() ? pos1.getBlockY() : pos2.getBlockY();
-        maxY = pos1.getBlockY() >= pos2.getBlockY() ? pos1.getBlockY() : pos2.getBlockY();
-        minZ = pos1.getBlockZ() < pos2.getBlockZ() ? pos1.getBlockZ() : pos2.getBlockZ();
-        maxZ = pos1.getBlockZ() >= pos2.getBlockZ() ? pos1.getBlockZ() : pos2.getBlockZ();
+        minX = Math.min(pos1.getBlockX(), pos2.getBlockX());
+        maxX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+        minY = Math.min(pos1.getBlockY(), pos2.getBlockY());
+        maxY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+        minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
+        maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
 
         for (int y = minY; y <= maxY; ++y) {
              for (int x = minX; x <= maxX; ++x) {
@@ -588,9 +562,7 @@ public class RemoteSession {
 
     public void send(String a) {
         if (pendingRemoval) return;
-        synchronized(outQueue) {
-            outQueue.add(a);
-        }
+        socket.send(a);
     }
 
     public void close() {
@@ -600,7 +572,6 @@ public class RemoteSession {
 
         //wait for threads to stop
         try {
-            inThread.join(2000);
             outThread.join(2000);
         }
         catch (InterruptedException e) {
@@ -623,69 +594,6 @@ public class RemoteSession {
         } catch (Exception e) {
         }
         close();
-    }
-
-    /** socket listening thread */
-    private class InputThread implements Runnable {
-        public void run() {
-            plugin.getLogger().info("Starting input thread");
-            while (running) {
-                try {
-                    String newLine = in.readLine();
-                    //System.out.println(newLine);
-                    if (newLine == null) {
-                        running = false;
-                    } else {
-                        inQueue.add(newLine);
-                        //System.out.println("Added to in queue");
-                    }
-                } catch (Exception e) {
-                    // if its running raise an error
-                    if (running) {
-                        e.printStackTrace();
-                        running = false;
-                    }
-                }
-            }
-            //close in buffer
-            try {
-                in.close();
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to close in buffer");
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private class OutputThread implements Runnable {
-        public void run() {
-            plugin.getLogger().info("Starting output thread!");
-            while (running) {
-                try {
-                    String line;
-                    while((line = outQueue.poll()) != null) {
-                        out.write(line);
-                        out.write('\n');
-                    }
-                    out.flush();
-                    Thread.yield();
-                    Thread.sleep(1L);
-                } catch (Exception e) {
-                    // if its running raise an error
-                    if (running) {
-                        e.printStackTrace();
-                        running = false;
-                    }
-                }
-            }
-            //close out buffer
-            try {
-                out.close();
-            } catch (Exception e) {
-                plugin.getLogger().warning("Failed to close out buffer");
-                e.printStackTrace();
-            }
-        }
     }
 
     /** from CraftBukkit's org.bukkit.craftbukkit.block.CraftBlock.blockFactToNotch */

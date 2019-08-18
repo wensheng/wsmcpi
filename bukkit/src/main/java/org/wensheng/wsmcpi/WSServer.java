@@ -69,9 +69,9 @@ public class WSServer extends WebSocketServer {
 	@Override
 	public void onClose( WebSocket conn, int code, String reason, boolean remote ) {
 		System.out.println("websocket closed for reason "+reason);
-		ApiHandler apiHandler = handlers.get(conn);
-		if (apiHandler != null) {
-			apiHandler.writer.close();
+		RemoteSession session = handlers.get(conn);
+		if (session != null) {
+			session.close();
 			handlers.remove(conn);
 		}
 	}
@@ -83,9 +83,9 @@ public class WSServer extends WebSocketServer {
 			conn.send("pong");
 			return;
 		}
-		ApiHandler apiHandler = handlers.get(conn);
-		if (apiHandler != null) {
-			apiHandler.process(message);
+		RemoteSession session = handlers.get(conn);
+		if (session != null) {
+			session.handleLine(message);
 		}
 	}
 
