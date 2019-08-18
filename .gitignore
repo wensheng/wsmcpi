@@ -1,0 +1,16 @@
+__pycache__/
+bukkit/bin/
+bukkit/target/
+bukkit/lib/*.jar
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+# gradle
+build
+.gradle
+# other
+eclipse
+run

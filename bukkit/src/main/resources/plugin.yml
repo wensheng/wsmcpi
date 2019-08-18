@@ -1,0 +1,8 @@
+name: ${project.name}
+main: org.wensheng.wsmcpi.WSMCPI
+version: ${project.version}
+author: Wensheng Wang
+description: ${project.description}
+website: ${project.url}
+commands:
+api-version: 1.13
