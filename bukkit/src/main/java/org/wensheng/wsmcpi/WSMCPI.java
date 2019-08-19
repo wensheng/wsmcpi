@@ -48,7 +48,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
 
     public Player hostPlayer = null;
     private WSServer wsServer = null;
-    private int httpServerPort = 8880;
+    private int httpServerPort = 8686;
     private HttpServer httpServer = null;
     
     public void onEnable(){
@@ -75,7 +75,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     private void save_resources() {
         File index_file = new File(getDataFolder(), "index.html");
         if(!index_file.exists()){
-            this.saveResource("index.yml", false);
+            this.saveResource("index.html", false);
         }
     }
 
@@ -101,6 +101,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public void onDisable(){
         int port = this.getConfig().getInt("pysvr_port");
         getServer().getScheduler().cancelTasks(this);
+        /*
         for(RemoteSession session: wsServer.getHandlers().values()){
             try {
                 session.close();
@@ -109,6 +110,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
                 e.printStackTrace();
             }
         }
+        */
         if(wsServer != null){
             try {
                 wsServer.stop();
@@ -154,10 +156,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     private class TickHandler implements Runnable {
         public void run() {
             for(RemoteSession session: wsServer.getHandlers().values()){
-                if(session.pendingRemoval==true){
-                    session.close();
-                    //wsServer.getHandlers().remove(entry);
-                }else{
+                if(session.pendingRemoval==false){
                     session.tick();
                 }
             }
