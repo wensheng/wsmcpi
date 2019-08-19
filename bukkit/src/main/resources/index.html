@@ -1,0 +1,21 @@
+<html>
+<head>
+    <title>websocket client</title>
+</head>
+<body>
+    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+                        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+                        crossorigin="anonymous">
+    </script>
+    <script>
+var ws = new WebSocket("ws://192.168.2.116:4721");
+ws.onopen = function(e) {
+  console.log('Connected to: ' + e.currentTarget.url);
+};
+ws.onmessage = function(e) {
+  var message = e.data;
+  console.log("got from server: " + message);
+};
+    </script>
+</body>
+</html>

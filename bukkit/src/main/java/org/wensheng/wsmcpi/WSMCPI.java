@@ -7,6 +7,8 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -29,6 +31,9 @@ import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.java_websocket.WebSocket;
+import com.sun.net.httpserver.HttpServer;
+import java.io.OutputStream;
+import java.net.InetSocketAddress;
 
 public class WSMCPI extends JavaPlugin implements Listener{
     public final Logger logger = Logger.getLogger("Minecraft");
@@ -43,15 +48,15 @@ public class WSMCPI extends JavaPlugin implements Listener{
 
     public Player hostPlayer = null;
     private WSServer wsServer = null;
+    private int httpServerPort = 8880;
+    private HttpServer httpServer = null;
     
     public void onEnable(){
         this.saveDefaultConfig();
         int port = this.getConfig().getInt("port");
         //boolean start_pyserver = this.getConfig().getBoolean("start_pyserver");
-        
-        //setup session array
-        sessions = new ArrayList<RemoteSession>();
-        
+
+        save_resources();
         try {
             wsServer = new WSServer(this, 4721);
             wsServer.start();
@@ -62,20 +67,41 @@ public class WSMCPI extends JavaPlugin implements Listener{
         getServer().getPluginManager().registerEvents(this, this);
         //setup the schedule to called the tick handler
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new TickHandler(), 1, 1);
+        if(getConfig().getBoolean("start_http_server") == true) {
+            createHttpServer();
+        }
     }
-    
+
+    private void save_resources() {
+        File index_file = new File(getDataFolder(), "index.html");
+        if(!index_file.exists()){
+            this.saveResource("index.yml", false);
+        }
+    }
+
+    private void createHttpServer(){
+        try {
+            httpServer = HttpServer.create(new InetSocketAddress(httpServerPort), 0);
+            byte response[] = Files.readAllBytes(Paths.get(getDataFolder().toString(),"index.html"));
+            httpServer.createContext("/", httpExchange ->
+            {
+                httpExchange.getResponseHeaders().add("Content-Type", "text/html; charset=UTF-8");
+                httpExchange.sendResponseHeaders(200, response.length);
+                OutputStream out = httpExchange.getResponseBody();
+                out.write(response);
+                out.close();
+            });
+            httpServer.start();
+        } catch (IOException e){
+            logger.warning("Could not start HTTP Server");
+
+        }
+    }
+
     public void onDisable(){
         int port = this.getConfig().getInt("pysvr_port");
-        if(wsServer != null){
-            try {
-                wsServer.stop();
-            } catch (IOException | InterruptedException e){
-                logger.warning("Can not stop websocket server");
-            }
-        }
-
         getServer().getScheduler().cancelTasks(this);
-        for (RemoteSession session: sessions) {
+        for(RemoteSession session: wsServer.getHandlers().values()){
             try {
                 session.close();
             } catch (Exception e) {
@@ -83,8 +109,13 @@ public class WSMCPI extends JavaPlugin implements Listener{
                 e.printStackTrace();
             }
         }
-        
-        sessions = null;
+        if(wsServer != null){
+            try {
+                wsServer.stop();
+            } catch (IOException | InterruptedException e){
+                logger.warning("Can not stop websocket server");
+            }
+        }
     }
     
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args){
@@ -140,16 +171,14 @@ public class WSMCPI extends JavaPlugin implements Listener{
         if (currentTool == null || !blockBreakDetectionTools.contains(currentTool.getType())) {
             return;
         }
-        for (RemoteSession session: sessions) {
+        for(RemoteSession session: wsServer.getHandlers().values()){
             session.queuePlayerInteractEvent(event);
         }
     }
-    
+
     @EventHandler(ignoreCancelled=true)
     public void onChatPosted(AsyncPlayerChatEvent event) {
-        //debug
-        //getLogger().info("Chat event fired");
-        for (RemoteSession session: sessions) {
+        for(RemoteSession session: wsServer.getHandlers().values()){
             session.queueChatPostedEvent(event);
         }
     }
