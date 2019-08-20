@@ -200,6 +200,8 @@ public class RemoteSession {
                  }
                  Entity entity = world.spawnEntity(loc, entityType);
                  send(entity.getEntityId());
+            } else if (c.equals("world.getHeight")) {
+                send(world.getHighestBlockYAt(parseRelativeBlockLocation(args[0], "0", args[1])) - origin.getBlockY());
             } else if (c.equals("chat.post")) {
                 //create chat message from args as it was split by ,
                 String chatMessage = "";
@@ -246,86 +248,8 @@ public class RemoteSession {
                 send(b.toString());
             } else if (c.startsWith("player.")){
                 handlePlayerCommand(c.substring(7, c.length()), args);
-            } else if (c.equals("world.getHeight")) {
-                send(world.getHighestBlockYAt(parseRelativeBlockLocation(args[0], "0", args[1])) - origin.getBlockY());
-                
-            } else if (c.equals("entity.getTile")) {
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    send(blockLocationToRelative(entity.getLocation()));
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-                
-            } else if (c.equals("entity.setTile")) {
-                String x = args[1], y = args[2], z = args[3];
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    //get entity's current location, so when they are moved we will use the same pitch and yaw (rotation)
-                    Location loc = entity.getLocation();
-                    entity.teleport(parseRelativeBlockLocation(x, y, z, loc.getPitch(), loc.getYaw()));
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-            } else if (c.equals("entity.getPos")) {
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    send(locationToRelative(entity.getLocation()));
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-            } else if (c.equals("entity.setPos")) {
-                String x = args[1], y = args[2], z = args[3];
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    //get entity's current location, so when they are moved we will use the same pitch and yaw (rotation)
-                    Location loc = entity.getLocation();
-                    entity.teleport(parseRelativeLocation(x, y, z, loc.getPitch(), loc.getYaw()));
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-            } else if (c.equals("entity.getDirection")) {
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    send(entity.getLocation().getDirection().toString());
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-            } else if (c.equals("entity.getRotation")) {
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    send(entity.getLocation().getYaw());
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
-            } else if (c.equals("entity.getPitch")) {
-                //get entity based on id
-                //EntityLiving entity = plugin.getEntityLiving(Integer.parseInt(args[0]));
-                Player entity = plugin.getEntity(Integer.parseInt(args[0]));
-                if (entity != null) {
-                    send(entity.getLocation().getPitch());
-                } else {
-                    plugin.getLogger().info("Entity [" + args[0] + "] not found.");
-                    send("Fail");
-                }
+            } else if (c.startsWith("entity.")){
+                handleEntityCommand(c.substring(7, c.length()), args);
             } else {
                 plugin.getLogger().warning(c + " is not supported.");
                 send("Fail");
@@ -379,16 +303,48 @@ public class RemoteSession {
         }
     }
 
-    // create a cuboid of lots of blocks 
+    void handleEntityCommand(String c, String[] args) {
+        if (args.length < 1) {
+            send("Missing entity ID");
+            return;
+        }
+        Player entity = plugin.getEntity(Integer.parseInt(args[0]));
+        if (entity == null) {
+            send("Failed getting entity " + args[0]);
+            return;
+        }
+        Location loc = entity.getLocation();
+        if (c.equals("getTile")) {
+            send(blockLocationToRelative(loc));
+        } else if (c.equals("entity.setTile")) {
+            String x = args[1], y = args[2], z = args[3];
+            entity.teleport(parseRelativeBlockLocation(x, y, z, loc.getPitch(), loc.getYaw()));
+        } else if (c.equals("getPos")) {
+            send(locationToRelative(loc));
+        } else if (c.equals("setPos")) {
+            String x = args[1], y = args[2], z = args[3];
+            entity.teleport(parseRelativeLocation(x, y, z, loc.getPitch(), loc.getYaw()));
+        } else if (c.equals("getDirection")) {
+            send(loc.getDirection().toString());
+        } else if (c.equals("getRotation")) {
+            send(loc.getYaw());
+        } else if (c.equals("getPitch")) {
+            send(loc.getPitch());
+        } else {
+            send("No such entity command");
+        }
+    }
+
+    // create a cuboid of lots of blocks
     private void setCuboid(Location pos1, Location pos2, Material blockType, BlockFace blockFace) {
         int minX, maxX, minY, maxY, minZ, maxZ;
         World world = pos1.getWorld();
-        minX = pos1.getBlockX() < pos2.getBlockX() ? pos1.getBlockX() : pos2.getBlockX();
-        maxX = pos1.getBlockX() >= pos2.getBlockX() ? pos1.getBlockX() : pos2.getBlockX();
-        minY = pos1.getBlockY() < pos2.getBlockY() ? pos1.getBlockY() : pos2.getBlockY();
-        maxY = pos1.getBlockY() >= pos2.getBlockY() ? pos1.getBlockY() : pos2.getBlockY();
-        minZ = pos1.getBlockZ() < pos2.getBlockZ() ? pos1.getBlockZ() : pos2.getBlockZ();
-        maxZ = pos1.getBlockZ() >= pos2.getBlockZ() ? pos1.getBlockZ() : pos2.getBlockZ();
+        minX = Math.min(pos1.getBlockX(), pos2.getBlockX());
+        maxX = Math.max(pos1.getBlockX(), pos2.getBlockX());
+        minY = Math.min(pos1.getBlockY(), pos2.getBlockY());
+        maxY = Math.max(pos1.getBlockY(), pos2.getBlockY());
+        minZ = Math.min(pos1.getBlockZ(), pos2.getBlockZ());
+        maxZ = Math.max(pos1.getBlockZ(), pos2.getBlockZ());
 
         for (int x = minX; x <= maxX; ++x) {
             for (int z = minZ; z <= maxZ; ++z) {
