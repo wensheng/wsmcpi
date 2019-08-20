@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <title>WSMCPI web client</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="wrap">
+    <div id="header">
+       <h1>WSMCPI Web Interface</h1>
+    </div>
+    <div id="content">
+      <div id="connection">
+        <span>Minecraft(Bukkit) Server address and ws port:</span>
+        <input id="svraddr" value="127.0.0.1" />
+        <input id="svrport" value="4721" />
+        <input id="connect" type="button" value="Connect" />
+      </div>
+      <div id="commands">
+        <h2>Controls</h2>
+        <div id="divpos"><span id="poswrap">Location= X:
+          <span id="px"></span> Y:<span id="py"></span> Z:<span id="pz"></span> </span>
+          &nbsp; &nbsp; <span id="message"></span>
+        </div>
+
+        <div id="onepos">
+          <span>Position:</span>
+          x:<input id="pos-x" type="text" value="" />
+          y:<input id="pos-y" type="text" value="" />
+          z:<input id="pos-z" type="text" value="" />
+        </div>
+
+        <div id="onetask">
+          <input id="teleport-btn" type="button" value="Teleport" /> &nbsp; &nbsp;
+          Item:<input id="setblock-type" type="text" value="" />
+          <input id="setblock-btn" type="button" value="setBlock" /> &nbsp; &nbsp;
+          Entity:<input id="spawn-type" type="text" value="" />
+          <input id="spawn-btn" type="button" value="spawn" />
+        </div>
+
+        <div id="setblocks">
+          <span>Set Blocks:</span>
+          x1:<input id="setblocks-x1" type="text" value="" />
+          y1:<input id="setblocks-y1" type="text" value="" />
+          z1:<input id="setblocks-z1" type="text" value="" />
+          x2:<input id="setblocks-x2" type="text" value="" />
+          y2:<input id="setblocks-y2" type="text" value="" />
+          z2:<input id="setblocks-z2" type="text" value="" />
+          type:<input id="setblocks-type" type="text" value="" />
+          <input id="setblocks-btn" type="button" value="setBlocks" />
+        </div>
+
+        <div id="more">
+          <input id="flatten-btn" type="button" value="Flatten" /> &nbsp; &nbsp;
+        </div>
+
+      </div><!-- /commands -->
+    </div>
+    <div id="footer">
+      <p>hello<p/>
+    </div>
+  </div><!-- /wrap -->
+  <script src="https://code.jquery.com/jquery-3.4.1.min.js"
+      integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+      crossorigin="anonymous">
+  </script>
+  <script src="js/EventEmitter.min.js"></script>
+  <script src="js/minecraft.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
