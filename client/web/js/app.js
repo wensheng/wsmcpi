@@ -18,8 +18,8 @@ function show_message(message){
 }
 
 $('#connect').on('click', function(){
+  mc.connect($("#svraddr").val(), parseInt($("#svrport").val()));
   $(this).attr("disabled", true);
-  mc.connect("192.168.2.116", 4721);
 });
 
 function getXYZ(){
