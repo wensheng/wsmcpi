@@ -42,6 +42,7 @@
                                 <includes>
                                     <include>org.java-websocket:Java-WebSocket</include>
                                     <include>org.slf4j:slf4j-api</include>
+                                    <include>org.slf4j:slf4j-simple</include>
                                 </includes>
                             </artifactSet>
                         </configuration>
@@ -75,6 +76,16 @@
             <groupId>org.java-websocket</groupId>
             <artifactId>Java-WebSocket</artifactId>
             <version>1.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>1.7.28</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>1.7.28</version>
         </dependency>
     </dependencies>
 
