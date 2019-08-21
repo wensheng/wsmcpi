@@ -32,7 +32,8 @@ public class RemoteSession {
     private final List<String> queuedCommands = Arrays.asList(new String[]{
             "world.setBlock",
             "world.setBlocks",
-            "world.spawnEntity"
+            "world.spawnEntity",
+            "player.setPos"
     });
 
     public RemoteSession(WSMCPI plugin, WebSocket socket) throws IOException {
