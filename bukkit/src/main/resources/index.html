@@ -1,21 +1,64 @@
+<!doctype html>
 <html>
 <head>
-    <title>websocket client</title>
+  <meta charset="utf8">
+  <title>websocket client</title>
+  <style>
+    #wrap {
+      width: 80%;
+      margin: 30px auto;
+      text-align: center;
+    }
+    input[type="button"]{
+      padding:5px 15px; 
+      background:#cfc; 
+      cursor:pointer;
+      border-radius: 5px; 
+    }
+  </style>
 </head>
 <body>
-    <script src="https://code.jquery.com/jquery-3.4.1.min.js"
-                        integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
-                        crossorigin="anonymous">
-    </script>
-    <script>
-var ws = new WebSocket("ws://192.168.2.116:4721");
-ws.onopen = function(e) {
-  console.log('Connected to: ' + e.currentTarget.url);
-};
-ws.onmessage = function(e) {
-  var message = e.data;
-  console.log("got from server: " + message);
-};
-    </script>
+<div id="wrap">
+  <div id="connection">
+    <span>Bukkit Server address and ws port:</span>
+    <input id="svraddr" value="127.0.0.1" />
+    <input id="svrport" value="4721" />
+    <input id="connect" type="button" value="Connect" />
+  </div>
+  <div id="command" style="margin-top:20px;">
+    <span>API command:</span>
+    <input id="apiline" style="width: 400px;" value="" />
+    <input id="send" type="button" value="Send" />
+  </div>
+<script>
+var ws = null;
+document.getElementById("connect").addEventListener("click", function(){
+  this.disabled = true;
+  var svraddr = document.getElementById("svraddr").value;
+  var svrport = document.getElementById("svrport").value;
+  ws = new WebSocket("ws://" + svraddr + ":" + svrport);
+  ws.onopen = function(e) {
+    console.log('Connected to: ' + e.currentTarget.url);
+  };
+  ws.onmessage = function(e) {
+    var message = e.data;
+    console.log("got from server: " + message);
+  };
+});
+function sendCommand(){
+  var line = document.getElementById("apiline").value;
+  if(ws != null && ws.readyState < 2 && line != ""){
+    ws.send(line);
+  }
+}
+var sendBtn = document.getElementById("send");
+sendBtn.addEventListener("click", sendCommand);
+sendBtn.addEventListener("keyup", function(event){
+  if(event.keyCode === 13){
+    sendCommand();
+    event.preventDefault();
+  }
+});
+</script>
 </body>
 </html>
