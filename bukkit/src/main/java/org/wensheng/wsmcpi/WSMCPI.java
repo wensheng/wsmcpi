@@ -9,12 +9,9 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.logging.Logger;
 
@@ -30,10 +27,8 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.java_websocket.WebSocket;
 import com.sun.net.httpserver.HttpServer;
 import java.io.OutputStream;
-import java.net.InetSocketAddress;
 
 public class WSMCPI extends JavaPlugin implements Listener{
     public final Logger logger = Logger.getLogger("Minecraft");
@@ -54,15 +49,20 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public void onEnable(){
         this.saveDefaultConfig();
         int port = this.getConfig().getInt("port");
-        //boolean start_pyserver = this.getConfig().getBoolean("start_pyserver");
 
         save_resources();
+
+        int wss_port = getConfig().getInt("port");
+        if(wss_port==0){
+            wss_port = 4721;
+        }
         try {
-            wsServer = new WSServer(this, 4721);
+            wsServer = new WSServer(this, wss_port);
             wsServer.start();
         } catch (IOException e) {
             getLogger().warning("Failed to start websocket server");
         }
+
         //register the events
         getServer().getPluginManager().registerEvents(this, this);
         //setup the schedule to called the tick handler
@@ -101,16 +101,6 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public void onDisable(){
         int port = this.getConfig().getInt("pysvr_port");
         getServer().getScheduler().cancelTasks(this);
-        /*
-        for(RemoteSession session: wsServer.getHandlers().values()){
-            try {
-                session.close();
-            } catch (Exception e) {
-                getLogger().warning("Failed to close RemoteSession");
-                e.printStackTrace();
-            }
-        }
-        */
         if(wsServer != null){
             try {
                 wsServer.stop();
