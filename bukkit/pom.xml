@@ -53,7 +53,7 @@
     </build>
 
     <properties>
-        <SpigotVersion>1.13.2</SpigotVersion>
+        <SpigotVersion>1.14.4</SpigotVersion>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
@@ -86,6 +86,11 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-simple</artifactId>
             <version>1.7.28</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-shade-plugin</artifactId>
+            <version>3.2.1</version>
         </dependency>
     </dependencies>
 
