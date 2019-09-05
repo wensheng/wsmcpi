@@ -23,20 +23,19 @@ public class RemoteSession {
     private ArrayDeque<String> inQueue = new ArrayDeque<String>();
     public boolean running = true;
     public boolean pendingRemoval = false;
-    public WSMCPI plugin;
+    private WSMCPI plugin;
     protected ArrayDeque<PlayerInteractEvent> interactEventQueue = new ArrayDeque<PlayerInteractEvent>();
     protected ArrayDeque<AsyncPlayerChatEvent> chatPostedQueue = new ArrayDeque<AsyncPlayerChatEvent>();
     private int maxCommandsPerTick = 9000;
     private boolean closed = false;
     private Player attachedPlayer = null;
-    private final List<String> queuedCommands = Arrays.asList(new String[]{
-            "world.setBlock",
+    private final double nearby_distance = 10.0;
+    private final List<String> queuedCommands = Arrays.asList("world.setBlock",
             "world.setBlocks",
             "world.spawnEntity",
-            "player.setPos"
-    });
+            "player.setPos");
 
-    public RemoteSession(WSMCPI plugin, WebSocket socket) throws IOException {
+    RemoteSession(WSMCPI plugin, WebSocket socket) throws IOException {
         this.socket = socket;
         this.plugin = plugin;
         plugin.getLogger().info("Opened connection to" + socket.getRemoteSocketAddress() + ".");
@@ -50,22 +49,22 @@ public class RemoteSession {
         this.origin = origin;
     }
 
-    public WebSocket getSocket() {
+    WebSocket getSocket() {
         return socket;
     }
 
-    public void queuePlayerInteractEvent(PlayerInteractEvent event) {
+    void queuePlayerInteractEvent(PlayerInteractEvent event) {
         //plugin.getLogger().info(event.toString());
         interactEventQueue.add(event);
     }
 
-    public void queueChatPostedEvent(AsyncPlayerChatEvent event) {
+    void queueChatPostedEvent(AsyncPlayerChatEvent event) {
         //plugin.getLogger().info(event.toString());
         chatPostedQueue.add(event);
     }
 
     /** called from the server main thread */
-    public void tick() {
+    void tick() {
         if (origin == null) this.origin = plugin.getServer().getWorlds().get(0).getSpawnLocation();
         int processedCount = 0;
         String message;
@@ -87,7 +86,7 @@ public class RemoteSession {
         }
     }
 
-    protected void handleLine(String line) {
+    void handleLine(String line) {
         if(line.indexOf("(") == -1 || line.indexOf(")") == -1){
            socket.send("Wrong format");
            return;
@@ -102,7 +101,7 @@ public class RemoteSession {
         }
     }
 
-    protected void handleCommand(String c, String[] args) {
+    private void handleCommand(String c, String[] args) {
         
         try {
             Server server = plugin.getServer();
@@ -190,7 +189,15 @@ public class RemoteSession {
                     }
                     sign.update();
                 }
-            } else if (c.equals("world.spawnEntity")) {
+            }else if(c.equals("world.getNearbyEntities")) {
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                Collection<Entity> nearbyEntities = world.getNearbyEntities(loc, nearby_distance, nearby_distance, nearby_distance);
+                String result = "";
+                for(Entity e: nearbyEntities){
+                    result += e.getName() + ": " + e.getUniqueId() + "\n";
+                }
+                send(result);
+            }else if (c.equals("world.spawnEntity")) {
                  Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
                  EntityType entityType;
                  try{
@@ -248,9 +255,9 @@ public class RemoteSession {
                 //System.out.println(b.toString());
                 send(b.toString());
             } else if (c.startsWith("player.")){
-                handlePlayerCommand(c.substring(7, c.length()), args);
+                handlePlayerCommand(c.substring(7), args);
             } else if (c.startsWith("entity.")){
-                handleEntityCommand(c.substring(7, c.length()), args);
+                handleEntityCommand(c.substring(7), args);
             } else {
                 plugin.getLogger().warning(c + " is not supported.");
                 send("Fail");
@@ -264,7 +271,7 @@ public class RemoteSession {
         }
     }
 
-    void handlePlayerCommand(String c, String[] args) {
+    private void handlePlayerCommand(String c, String[] args) {
         String name = null;
         if((c.startsWith("set") && args.length > 3) || args.length == 1) {
             name = args[0];
@@ -304,12 +311,12 @@ public class RemoteSession {
         }
     }
 
-    void handleEntityCommand(String c, String[] args) {
+    private void handleEntityCommand(String c, String[] args) {
         if (args.length < 1) {
             send("Missing entity ID");
             return;
         }
-        Player entity = plugin.getEntity(Integer.parseInt(args[0]));
+        Entity entity = plugin.getServer().getEntity(UUID.fromString(args[0]));
         if (entity == null) {
             send("Failed getting entity " + args[0]);
             return;
@@ -398,7 +405,7 @@ public class RemoteSession {
     }
     
     // gets the current player
-    public Player getCurrentPlayer(String name) {
+    private Player getCurrentPlayer(String name) {
         Player player = null;
         if(name != null){
             player = plugin.getNamedPlayer(name);
@@ -420,54 +427,54 @@ public class RemoteSession {
         return attachedPlayer;
     }
 
-    public Location parseRelativeBlockLocation(String xstr, String ystr, String zstr) {
+    private Location parseRelativeBlockLocation(String xstr, String ystr, String zstr) {
         int x = (int) Double.parseDouble(xstr);
         int y = (int) Double.parseDouble(ystr);
         int z = (int) Double.parseDouble(zstr);
         return new Location(origin.getWorld(), origin.getBlockX() + x, origin.getBlockY() + y, origin.getBlockZ() + z);
     }
 
-    public Location parseRelativeLocation(String xstr, String ystr, String zstr) {
+    private Location parseRelativeLocation(String xstr, String ystr, String zstr) {
         double x = Double.parseDouble(xstr);
         double y = Double.parseDouble(ystr);
         double z = Double.parseDouble(zstr);
         return new Location(origin.getWorld(), origin.getX() + x, origin.getY() + y, origin.getZ() + z);
     }
 
-    public Location parseRelativeBlockLocation(String xstr, String ystr, String zstr, float pitch, float yaw) {
+    private Location parseRelativeBlockLocation(String xstr, String ystr, String zstr, float pitch, float yaw) {
         Location loc = parseRelativeBlockLocation(xstr, ystr, zstr);
         loc.setPitch(pitch);
         loc.setYaw(yaw);
         return loc;
     }
 
-    public Location parseRelativeLocation(String xstr, String ystr, String zstr, float pitch, float yaw) {
+    private Location parseRelativeLocation(String xstr, String ystr, String zstr, float pitch, float yaw) {
         Location loc = parseRelativeLocation(xstr, ystr, zstr);
         loc.setPitch(pitch);
         loc.setYaw(yaw);
         return loc;
     }
     
-    public String blockLocationToRelative(Location loc) {
+    private String blockLocationToRelative(Location loc) {
         return (loc.getBlockX() - origin.getBlockX()) + "," + (loc.getBlockY() - origin.getBlockY()) + "," +
             (loc.getBlockZ() - origin.getBlockZ());
     }
 
-    public String locationToRelative(Location loc) {
+    private String locationToRelative(Location loc) {
         return (loc.getX() - origin.getX()) + "," + (loc.getY() - origin.getY()) + "," +
             (loc.getZ() - origin.getZ());
     }
 
-    public void send(Object a) {
+    private void send(Object a) {
         send(a.toString());
     }
 
-    public void send(String a) {
+    private void send(String a) {
         if (pendingRemoval) return;
         socket.send(a);
     }
 
-    public void close() {
+    void close() {
         if (closed) return;
         running = false;
         pendingRemoval = true;
@@ -489,7 +496,7 @@ public class RemoteSession {
         plugin.getLogger().info("Closed connection to" + socket.getRemoteSocketAddress() + ".");
     }
 
-    public void kick(String reason) {
+    void kick(String reason) {
         try {
             out.write(reason);
             out.flush();
@@ -499,7 +506,7 @@ public class RemoteSession {
     }
 
     /** from CraftBukkit's org.bukkit.craftbukkit.block.CraftBlock.blockFactToNotch */
-    public static int blockFaceToNotch(BlockFace face) {
+    private static int blockFaceToNotch(BlockFace face) {
         switch (face) {
         case DOWN:
             return 0;

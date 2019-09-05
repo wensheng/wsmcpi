@@ -30,6 +30,9 @@
     <input id="apiline" style="width: 400px;" value="" />
     <input id="send" type="button" value="Send" />
   </div>
+  <div id="messagewrap" style="margin-top:20px;">
+    <p id="message"> </p>
+  </div>
 <script>
 var ws = null;
 document.getElementById("connect").addEventListener("click", function(){
@@ -42,7 +45,7 @@ document.getElementById("connect").addEventListener("click", function(){
   };
   ws.onmessage = function(e) {
     var message = e.data;
-    console.log("got from server: " + message);
+    document.getElementById("message").innerHTML = message;
   };
 });
 function sendCommand(){

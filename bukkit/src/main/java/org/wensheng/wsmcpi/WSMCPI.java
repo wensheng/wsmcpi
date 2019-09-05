@@ -17,6 +17,7 @@ import java.util.logging.Logger;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.Server;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -31,12 +32,12 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.OutputStream;
 
 public class WSMCPI extends JavaPlugin implements Listener{
-    public final Logger logger = Logger.getLogger("Minecraft");
+    public final Logger logger = Logger.getLogger("WSMCPI");
     public static final Set<Material> blockBreakDetectionTools = EnumSet.of(
             Material.DIAMOND_SWORD,
             Material.GOLDEN_SWORD,
             Material.IRON_SWORD, 
-            Material.STONE_SWORD, 
+            Material.STONE_SWORD,
             Material.WOODEN_SWORD);
 
     public List<RemoteSession> sessions;
@@ -67,7 +68,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
         getServer().getPluginManager().registerEvents(this, this);
         //setup the schedule to called the tick handler
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new TickHandler(), 1, 1);
-        if(getConfig().getBoolean("start_http_server") == true) {
+        if(getConfig().getBoolean("start_http_server")) {
             createHttpServer();
         }
     }
@@ -82,7 +83,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     private void createHttpServer(){
         try {
             httpServer = HttpServer.create(new InetSocketAddress(httpServerPort), 0);
-            byte response[] = Files.readAllBytes(Paths.get(getDataFolder().toString(),"index.html"));
+            byte[] response = Files.readAllBytes(Paths.get(getDataFolder().toString(),"index.html"));
             httpServer.createContext("/", httpExchange ->
             {
                 httpExchange.getResponseHeaders().add("Content-Type", "text/html; charset=UTF-8");
@@ -184,7 +185,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
         }
     }
 
-    public Player getNamedPlayer(String name) {
+    Player getNamedPlayer(String name) {
         if (name == null) return null;
         for(Player p: Bukkit.getOnlinePlayers()){
             if(name.equalsIgnoreCase(p.getName())){
@@ -194,7 +195,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
         return null;
     }
 
-    public Player getHostPlayer() {
+    Player getHostPlayer() {
         if (hostPlayer != null) return hostPlayer;
         Collection<? extends Player> allPlayers = Bukkit.getOnlinePlayers();
         if(allPlayers.size()>=1){
@@ -203,16 +204,6 @@ public class WSMCPI extends JavaPlugin implements Listener{
         return null;
     }
     
-    //get entity by id - TODO to be compatible with the pi it should be changed to return an entity not a player...
-    public Player getEntity(int id) {
-        for (Player p: getServer().getOnlinePlayers()) {
-            if (p.getEntityId() == id) {
-                return p;
-            }
-        }
-        return null;
-    }
-
     public boolean checkBanned(RemoteSession session) {
         Set<String> ipBans = getServer().getIPBans();
         String sessionIp = session.getSocket().getRemoteSocketAddress().getAddress().toString();

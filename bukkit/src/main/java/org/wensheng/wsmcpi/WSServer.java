@@ -1,5 +1,8 @@
 package org.wensheng.wsmcpi;
 
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.Writer;
@@ -8,18 +11,11 @@ import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.java_websocket.WebSocket;
-import org.java_websocket.handshake.ClientHandshake;
-import org.java_websocket.server.WebSocketServer;
-
 public class WSServer extends WebSocketServer {
 	private Map<WebSocket, RemoteSession> handlers;
     private WSMCPI plugin;
-	private static final Logger LOGGER = LogManager.getLogger();
-	
-	public WSServer(WSMCPI plugin, int port ) throws UnknownHostException {
+
+	WSServer(WSMCPI plugin, int port) throws UnknownHostException {
 		super( new InetSocketAddress( port ) );
 		System.out.println("Websocket server on "+port);
         this.plugin = plugin;
@@ -32,7 +28,7 @@ public class WSServer extends WebSocketServer {
 		//setConnectionLostTimeout(100);
 	}
 
-    public Map<WebSocket, RemoteSession> getHandlers(){
+    Map<WebSocket, RemoteSession> getHandlers(){
         return handlers;
     }
 
@@ -58,7 +54,7 @@ public class WSServer extends WebSocketServer {
 		try {
             handlers.put(conn, new RemoteSession(plugin, conn));
 		} catch (IOException e) {
-            LOGGER.warn("Could not create remote session");
+            this.plugin.logger.warning("Could not create remote session");
 		}
 	}
 
@@ -74,7 +70,7 @@ public class WSServer extends WebSocketServer {
 
 	@Override
 	public void onMessage( WebSocket conn, String message ) {
-		LOGGER.info("WS got message: " + message);
+		this.plugin.logger.info("WS got message: " + message);
 		if(message.equals("ping")){
 			conn.send("pong");
 			return;
