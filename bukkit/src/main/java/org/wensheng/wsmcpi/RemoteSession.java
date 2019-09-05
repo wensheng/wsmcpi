@@ -408,14 +408,23 @@ public class RemoteSession {
     private Player getCurrentPlayer(String name) {
         Player player = null;
         if(name != null){
-            player = plugin.getNamedPlayer(name);
-            if(player != null){
-                return player;
-            }
+            return plugin.getNamedPlayer(name);
         }
 
-        if(Bukkit.getOnlinePlayers().size() == 1){
-            attachedPlayer = Bukkit.getOnlinePlayers().iterator().next();
+        plugin.logger.info("number of players: " + Bukkit.getOnlinePlayers().size());
+        Player firstPlayer, opPlayer = null;
+        if(Bukkit.getOnlinePlayers().size() > 0) {
+            firstPlayer = Bukkit.getOnlinePlayers().iterator().next();
+            for (Player p : Bukkit.getOnlinePlayers()) {
+                if (p.isOp()) {
+                    opPlayer = p;
+                }
+            }
+            if(opPlayer != null){
+                attachedPlayer = opPlayer;
+            }else{
+                attachedPlayer = firstPlayer;
+            }
             return attachedPlayer;
         }
 
