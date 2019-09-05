@@ -72,8 +72,7 @@ public class RemoteSession {
         String message;
         while ((message = inQueue.poll()) != null) {
             String methodName = message.substring(0, message.indexOf("("));
-            //split string into args, handles , inside " i.e. ","
-            String[] args = message.substring(message.indexOf("(") + 1, message.length() - 1).split(",");
+            String[] args = message.substring(message.indexOf("(") + 1, message.length() - 1).split(",\\s*");
             handleCommand(methodName, args);
             processedCount++;
             if (processedCount >= maxCommandsPerTick) {
@@ -93,9 +92,9 @@ public class RemoteSession {
            socket.send("Wrong format");
            return;
         }
+        line = line.trim();
         String methodName = line.substring(0, line.indexOf("("));
-        //split string into args, handles , inside " i.e. ","
-        String[] args = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",");
+        String[] args = line.substring(line.indexOf("(") + 1, line.length() - 1).split(",\\s*");
         if(queuedCommands.contains(methodName)) {
             inQueue.add(line);
         }else{
