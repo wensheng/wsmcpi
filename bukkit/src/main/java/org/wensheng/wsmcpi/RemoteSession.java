@@ -41,6 +41,7 @@ public class RemoteSession {
         this.socket = socket;
         this.plugin = plugin;
         plugin.logger.info("Opened connection to" + socket.getRemoteSocketAddress() + ".");
+        origin = plugin.getServer().getWorlds().get(0).getSpawnLocation();
     }
 
     public Location getOrigin() {
@@ -67,9 +68,6 @@ public class RemoteSession {
 
     /** called from the server main thread */
     void tick() {
-        if (origin == null) {
-            origin = plugin.getServer().getWorlds().get(0).getSpawnLocation();
-        }
         int processedCount = 0;
         String message;
         while ((message = inQueue.poll()) != null) {
@@ -428,6 +426,9 @@ public class RemoteSession {
             }else{
                 attachedPlayer = firstPlayer;
             }
+            int d = attachedPlayer.getWorld().getEnvironment().ordinal();
+            origin = plugin.getServer().getWorlds().get(d).getSpawnLocation();
+            
         }else{
             attachedPlayer = null;
         }
