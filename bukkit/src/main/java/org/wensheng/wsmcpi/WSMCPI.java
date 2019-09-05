@@ -1,25 +1,18 @@
 package org.wensheng.wsmcpi;
 
-import java.io.BufferedReader;
-import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.Collection;
 import java.util.EnumSet;
-import java.util.List;
 import java.util.Set;
 import java.util.logging.Logger;
 
+import com.sun.net.httpserver.HttpServer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
-import org.bukkit.Server;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -28,41 +21,30 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import com.sun.net.httpserver.HttpServer;
-import java.io.OutputStream;
 
 public class WSMCPI extends JavaPlugin implements Listener{
-    public final Logger logger = Logger.getLogger("WSMCPI");
-    public static final Set<Material> blockBreakDetectionTools = EnumSet.of(
+    final Logger logger = Logger.getLogger("WSMCPI");
+    private static final Set<Material> blockBreakDetectionTools = EnumSet.of(
             Material.DIAMOND_SWORD,
             Material.GOLDEN_SWORD,
             Material.IRON_SWORD, 
             Material.STONE_SWORD,
             Material.WOODEN_SWORD);
 
-    public List<RemoteSession> sessions;
-
-    public Player hostPlayer = null;
     private WSServer wsServer = null;
-    private int httpServerPort = 8686;
+    private final int httpServerPort = 8686;
     private HttpServer httpServer = null;
     
     public void onEnable(){
         this.saveDefaultConfig();
-        int port = this.getConfig().getInt("port");
-
         save_resources();
 
         int wss_port = getConfig().getInt("port");
         if(wss_port==0){
             wss_port = 4721;
         }
-        try {
-            wsServer = new WSServer(this, wss_port);
-            wsServer.start();
-        } catch (IOException e) {
-            getLogger().warning("Failed to start websocket server");
-        }
+        wsServer = new WSServer(this, wss_port);
+        wsServer.start();
 
         //register the events
         getServer().getPluginManager().registerEvents(this, this);
@@ -95,12 +77,10 @@ public class WSMCPI extends JavaPlugin implements Listener{
             httpServer.start();
         } catch (IOException e){
             logger.warning("Could not start HTTP Server");
-
         }
     }
 
     public void onDisable(){
-        int port = this.getConfig().getInt("pysvr_port");
         getServer().getScheduler().cancelTasks(this);
         if(wsServer != null){
             try {
@@ -109,45 +89,15 @@ public class WSMCPI extends JavaPlugin implements Listener{
                 logger.warning("Can not stop websocket server");
             }
         }
-    }
-    
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args){
-        String cmdString;
-        int port = this.getConfig().getInt("pysvr_port");
-        
-        if(args.length<1){
-            return false;
+        if(getConfig().getBoolean("start_http_server") && httpServer != null) {
+            httpServer.stop(0);
         }
-        
-        if(port==0){
-            port = 32123;
-        }
-        
-        try {
-            Socket socket = new Socket("localhost", port);
-            DataOutputStream toPyServer = new DataOutputStream(socket.getOutputStream());
-            BufferedReader fromPyServer = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-            String cmdLine = String.join(" ", args);
-            toPyServer.writeUTF(cmdLine);
-            //if(player instanceof Player){
-            //    logger.info(player.getName() + ": send to py server: " + args[0]);
-            //}
-            cmdString = fromPyServer.readLine();
-            logger.info("the py server send back " + cmdString);
-            toPyServer.close();
-            fromPyServer.close();
-            socket.close();
-        } catch (Exception e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        return true;
     }
     
     private class TickHandler implements Runnable {
         public void run() {
             for(RemoteSession session: wsServer.getHandlers().values()){
-                if(session.pendingRemoval==false){
+                if(!session.pendingRemoval){
                     session.tick();
                 }
             }
@@ -158,7 +108,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     public void onPlayerInteract(PlayerInteractEvent event) {
         if (event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
         ItemStack currentTool = event.getPlayer().getInventory().getItemInMainHand();
-        if (currentTool == null || !blockBreakDetectionTools.contains(currentTool.getType())) {
+        if (!blockBreakDetectionTools.contains(currentTool.getType())) {
             return;
         }
         for(RemoteSession session: wsServer.getHandlers().values()){
@@ -173,18 +123,6 @@ public class WSMCPI extends JavaPlugin implements Listener{
         }
     }
 
-    /** called when a new session is established. */
-    public void handleConnection(RemoteSession newSession) {
-        if (checkBanned(newSession)) {
-            getLogger().warning("Kicking " + newSession.getSocket().getRemoteSocketAddress() + " because the IP address has been banned.");
-            newSession.kick("You've been banned from this server!");
-            return;
-        }
-        synchronized(sessions) {
-            sessions.add(newSession);
-        }
-    }
-
     Player getNamedPlayer(String name) {
         if (name == null) return null;
         for(Player p: Bukkit.getOnlinePlayers()){
@@ -194,20 +132,4 @@ public class WSMCPI extends JavaPlugin implements Listener{
         }
         return null;
     }
-
-    Player getHostPlayer() {
-        if (hostPlayer != null) return hostPlayer;
-        Collection<? extends Player> allPlayers = Bukkit.getOnlinePlayers();
-        if(allPlayers.size()>=1){
-            return allPlayers.iterator().next();
-        }
-        return null;
-    }
-    
-    public boolean checkBanned(RemoteSession session) {
-        Set<String> ipBans = getServer().getIPBans();
-        String sessionIp = session.getSocket().getRemoteSocketAddress().getAddress().toString();
-        return ipBans.contains(sessionIp);
-    }
-
 }

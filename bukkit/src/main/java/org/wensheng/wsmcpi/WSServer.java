@@ -3,11 +3,9 @@ package org.wensheng.wsmcpi;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
+
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.Writer;
 import java.net.InetSocketAddress;
-import java.net.UnknownHostException;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -15,11 +13,11 @@ public class WSServer extends WebSocketServer {
 	private Map<WebSocket, RemoteSession> handlers;
     private WSMCPI plugin;
 
-	WSServer(WSMCPI plugin, int port) throws UnknownHostException {
+	WSServer(WSMCPI plugin, int port) {
 		super( new InetSocketAddress( port ) );
-		System.out.println("Websocket server on "+port);
         this.plugin = plugin;
-		handlers = new HashMap<WebSocket, RemoteSession>();
+		plugin.logger.info("Websocket server on "+port);
+		handlers = new HashMap<>();
 	}
 
 	@Override
@@ -34,33 +32,17 @@ public class WSServer extends WebSocketServer {
 
 	@Override
 	public void onOpen(final WebSocket conn, ClientHandshake handshake ) {
-		System.out.println("websocket connect from "+conn.getRemoteSocketAddress().getHostName());
-		Writer writer = new Writer() {
-			@Override
-			public void close() throws IOException {
-			}
-
-			@Override
-			public void flush() throws IOException {
-			}
-
-			@Override
-			public void write(char[] data, int start, int len)
-					throws IOException {
-				conn.send(new String(data, start, len));
-			}
-		};
-		PrintWriter pw = new PrintWriter(writer);
+		plugin.logger.info("websocket connect from "+conn.getRemoteSocketAddress().getHostName());
 		try {
             handlers.put(conn, new RemoteSession(plugin, conn));
 		} catch (IOException e) {
-            this.plugin.logger.warning("Could not create remote session");
+            plugin.logger.warning("Could not create remote session");
 		}
 	}
 
 	@Override
 	public void onClose( WebSocket conn, int code, String reason, boolean remote ) {
-		System.out.println("websocket closed for reason "+reason);
+		plugin.logger.info("websocket closed for reason "+reason);
 		RemoteSession session = handlers.get(conn);
 		if (session != null) {
 			session.close();
@@ -70,7 +52,7 @@ public class WSServer extends WebSocketServer {
 
 	@Override
 	public void onMessage( WebSocket conn, String message ) {
-		this.plugin.logger.info("WS got message: " + message);
+		plugin.logger.info("WS got message: " + message);
 		if(message.equals("ping")){
 			conn.send("pong");
 			return;

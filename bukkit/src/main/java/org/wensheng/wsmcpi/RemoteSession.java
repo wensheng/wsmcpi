@@ -1,35 +1,37 @@
 package org.wensheng.wsmcpi;
 
-import java.io.*;
-import java.net.*;
-import java.util.*;
-
 import org.bukkit.*;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Sign;
 import org.bukkit.block.data.BlockData;
 import org.bukkit.block.data.Directional;
-import org.bukkit.entity.*;
-import org.bukkit.block.*;
-import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
-//import org.bukkit.material.Directional;
-import org.bukkit.material.SimpleAttachableMaterialData;
+import org.bukkit.event.player.PlayerInteractEvent;
 import org.java_websocket.WebSocket;
+
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.util.*;
+
+//import org.bukkit.material.Directional;
 
 public class RemoteSession {
     private Location origin;
     private WebSocket socket;
     private BufferedWriter out;
-    private Thread outThread;
     private ArrayDeque<String> inQueue = new ArrayDeque<String>();
     public boolean running = true;
-    public boolean pendingRemoval = false;
+    boolean pendingRemoval = false;
     private WSMCPI plugin;
     protected ArrayDeque<PlayerInteractEvent> interactEventQueue = new ArrayDeque<PlayerInteractEvent>();
     protected ArrayDeque<AsyncPlayerChatEvent> chatPostedQueue = new ArrayDeque<AsyncPlayerChatEvent>();
     private int maxCommandsPerTick = 9000;
-    private boolean closed = false;
     private Player attachedPlayer = null;
-    private final double nearby_distance = 10.0;
     private final List<String> queuedCommands = Arrays.asList("world.setBlock",
             "world.setBlocks",
             "world.spawnEntity",
@@ -38,7 +40,7 @@ public class RemoteSession {
     RemoteSession(WSMCPI plugin, WebSocket socket) throws IOException {
         this.socket = socket;
         this.plugin = plugin;
-        plugin.getLogger().info("Opened connection to" + socket.getRemoteSocketAddress() + ".");
+        plugin.logger.info("Opened connection to" + socket.getRemoteSocketAddress() + ".");
     }
 
     public Location getOrigin() {
@@ -65,7 +67,9 @@ public class RemoteSession {
 
     /** called from the server main thread */
     void tick() {
-        if (origin == null) this.origin = plugin.getServer().getWorlds().get(0).getSpawnLocation();
+        if (origin == null) {
+            origin = plugin.getServer().getWorlds().get(0).getSpawnLocation();
+        }
         int processedCount = 0;
         String message;
         while ((message = inQueue.poll()) != null) {
@@ -75,7 +79,7 @@ public class RemoteSession {
             handleCommand(methodName, args);
             processedCount++;
             if (processedCount >= maxCommandsPerTick) {
-                plugin.getLogger().warning("Over " + maxCommandsPerTick +
+                plugin.logger.warning("Over " + maxCommandsPerTick +
                     " commands were queued - deferring " + inQueue.size() + " to next tick");
                 break;
             }
@@ -87,7 +91,7 @@ public class RemoteSession {
     }
 
     void handleLine(String line) {
-        if(line.indexOf("(") == -1 || line.indexOf(")") == -1){
+        if(!line.contains("(") || !line.contains(")")){
            socket.send("Wrong format");
            return;
         }
@@ -142,7 +146,9 @@ public class RemoteSession {
             } else if (c.equals("world.getPlayerIds")) {
                 StringBuilder bdr = new StringBuilder();
                 for (Player p: server.getOnlinePlayers()) {
-                    bdr.append(p.getEntityId());
+                    bdr.append(p.getName());
+                    bdr.append(":");
+                    bdr.append(p.getUniqueId());
                     bdr.append("|");
                 }
                 bdr.deleteCharAt(bdr.length()-1);
@@ -150,9 +156,9 @@ public class RemoteSession {
             } else if (c.equals("world.getPlayerId")) {
                 Player p = plugin.getNamedPlayer(args[0]);
                 if (p != null) {
-                    send(p.getEntityId());
+                    send(p.getUniqueId());
                 } else {
-                    plugin.getLogger().info("Player [" + args[0] + "] not found.");
+                    plugin.logger.info("Player [" + args[0] + "] not found.");
                     send("Fail");
                 }
             } else if (c.equals("world.setSign")) {
@@ -164,7 +170,7 @@ public class RemoteSession {
                 // SIGN WALL_SIGN, LEGACY 
                 Material material = Material.matchMaterial(args[3]);
                 if(material == null){
-                    material = Material.LEGACY_SIGN;
+                    material = Material.BIRCH_SIGN;
                 }
                 thisBlock.setType(material);
 
@@ -191,12 +197,13 @@ public class RemoteSession {
                 }
             }else if(c.equals("world.getNearbyEntities")) {
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                double nearby_distance = 10.0;
                 Collection<Entity> nearbyEntities = world.getNearbyEntities(loc, nearby_distance, nearby_distance, nearby_distance);
-                String result = "";
+                StringBuilder result = new StringBuilder();
                 for(Entity e: nearbyEntities){
-                    result += e.getName() + ": " + e.getUniqueId() + "\n";
+                    result.append(e.getName()).append(": ").append(e.getUniqueId()).append(" \n");
                 }
-                send(result);
+                send(result.toString());
             }else if (c.equals("world.spawnEntity")) {
                  Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
                  EntityType entityType;
@@ -204,9 +211,8 @@ public class RemoteSession {
                      entityType = EntityType.valueOf(args[3].toUpperCase());
                  }catch(Exception exc){
                      entityType = EntityType.valueOf("COW");
-                 }finally{
                  }
-                 Entity entity = world.spawnEntity(loc, entityType);
+                Entity entity = world.spawnEntity(loc, entityType);
                  send(entity.getEntityId());
             } else if (c.equals("world.getHeight")) {
                 send(world.getHighestBlockYAt(parseRelativeBlockLocation(args[0], "0", args[1])) - origin.getBlockY());
@@ -259,20 +265,18 @@ public class RemoteSession {
             } else if (c.startsWith("entity.")){
                 handleEntityCommand(c.substring(7), args);
             } else {
-                plugin.getLogger().warning(c + " is not supported.");
+                plugin.logger.warning(c + " is not supported.");
                 send("Fail");
             }
         } catch (Exception e) {
-            
-            plugin.getLogger().warning("Error occured handling command");
+            plugin.logger.warning("Error occured handling command");
             e.printStackTrace();
             send("Fail");
-            
         }
     }
 
     private void handlePlayerCommand(String c, String[] args) {
-        String name = null;
+        String name = "";
         if((c.startsWith("set") && args.length > 3) || args.length == 1) {
             name = args[0];
         }
@@ -406,18 +410,17 @@ public class RemoteSession {
     
     // gets the current player
     private Player getCurrentPlayer(String name) {
-        Player player = null;
-        if(name != null){
+        if(!name.equals("")){
             return plugin.getNamedPlayer(name);
         }
 
-        plugin.logger.info("number of players: " + Bukkit.getOnlinePlayers().size());
         Player firstPlayer, opPlayer = null;
-        if(Bukkit.getOnlinePlayers().size() > 0) {
-            firstPlayer = Bukkit.getOnlinePlayers().iterator().next();
-            for (Player p : Bukkit.getOnlinePlayers()) {
-                if (p.isOp()) {
-                    opPlayer = p;
+        Collection<? extends Player> players = Bukkit.getOnlinePlayers();
+        if(players.size() > 0) {
+            firstPlayer = players.iterator().next();
+            for (Player player : players) {
+                if (player.isOp()) {
+                    opPlayer = player;
                 }
             }
             if(opPlayer != null){
@@ -425,14 +428,10 @@ public class RemoteSession {
             }else{
                 attachedPlayer = firstPlayer;
             }
-            return attachedPlayer;
+        }else{
+            attachedPlayer = null;
         }
 
-        if(attachedPlayer != null){
-            return attachedPlayer;
-        }
-
-        attachedPlayer = plugin.getHostPlayer();
         return attachedPlayer;
     }
 
@@ -484,34 +483,15 @@ public class RemoteSession {
     }
 
     void close() {
-        if (closed) return;
         running = false;
         pendingRemoval = true;
-
-        //wait for threads to stop
-        try {
-            outThread.join(2000);
-        }
-        catch (InterruptedException e) {
-            plugin.getLogger().warning("Failed to stop in/out thread");
-            e.printStackTrace();
-        }
 
         try {
             socket.close();
         } catch (Exception e) {
             e.printStackTrace();
         }
-        plugin.getLogger().info("Closed connection to" + socket.getRemoteSocketAddress() + ".");
-    }
-
-    void kick(String reason) {
-        try {
-            out.write(reason);
-            out.flush();
-        } catch (Exception e) {
-        }
-        close();
+        plugin.logger.info("Closed connection to" + socket.getRemoteSocketAddress() + ".");
     }
 
     /** from CraftBukkit's org.bukkit.craftbukkit.block.CraftBlock.blockFactToNotch */
