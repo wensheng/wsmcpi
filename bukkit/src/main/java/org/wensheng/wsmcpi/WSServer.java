@@ -3,9 +3,12 @@ package org.wensheng.wsmcpi;
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
 import org.java_websocket.server.WebSocketServer;
+import org.java_websocket.enums.Opcode;
+import org.java_websocket.framing.PongFrame;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -53,8 +56,13 @@ public class WSServer extends WebSocketServer {
 	@Override
 	public void onMessage( WebSocket conn, String message ) {
 		plugin.logger.info("WS got message: " + message);
+		if(message.equals("pong")){
+			//this server will periodically send ping to client
+			return;
+		}
 		if(message.equals("ping")){
-			conn.send("pong");
+			PongFrame pf = new PongFrame();
+			conn.sendFrame(pf);
 			return;
 		}
 		RemoteSession session = handlers.get(conn);
@@ -63,6 +71,10 @@ public class WSServer extends WebSocketServer {
 		}
 	}
 
+	@Override
+	public void onMessage( WebSocket conn, ByteBuffer message ) {
+		plugin.logger.info("received ByteBuffer from "	+ message.toString());
+	}
 
 	@Override
 	public void onError( WebSocket conn, Exception ex ) {
