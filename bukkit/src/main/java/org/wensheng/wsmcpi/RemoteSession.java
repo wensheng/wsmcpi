@@ -1,6 +1,10 @@
 package org.wensheng.wsmcpi;
 
-import org.bukkit.*;
+import org.bukkit.Bukkit;
+import org.bukkit.Server;
+import org.bukkit.World;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
@@ -110,7 +114,6 @@ public class RemoteSession {
             
             if (c.equals("world.getBlock")) {
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
-                //send(world.getBlockAt(loc).getType());
                 send(world.getBlockAt(loc).getType().name());
             } else if (c.equals("world.getBlocks")) {
                 Location loc1 = parseRelativeBlockLocation(args[0], args[1], args[2]);
@@ -119,7 +122,6 @@ public class RemoteSession {
             } else if (c.equals("world.getBlockWithData")) {
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
                 Block block = world.getBlockAt(loc);
-                //send(block.getType() + "," + block.getBlockData());
                 send(block.getType().name() + "," + block.getBlockData());
             } else if (c.equals("world.setBlock")) {
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
@@ -210,7 +212,7 @@ public class RemoteSession {
                      entityType = EntityType.valueOf("COW");
                  }
                 Entity entity = world.spawnEntity(loc, entityType);
-                 send(entity.getEntityId());
+                 send(entity.getUniqueId());
             } else if (c.equals("world.getHeight")) {
                 send(world.getHighestBlockYAt(parseRelativeBlockLocation(args[0], "0", args[1])) - origin.getBlockY());
             } else if (c.equals("chat.post")) {

@@ -20,8 +20,9 @@
 <body>
 <div id="wrap">
   <div id="connection">
-    <span>Bukkit Server address and ws port:</span>
-    <input id="svraddr" value="127.0.0.1" />
+    <span>Bukkit Server addresst:</span>
+    <input id="svraddr" value="localhost" />
+    <span>WS port:</span>
     <input id="svrport" value="4721" />
     <input id="connect" type="button" value="Connect" />
   </div>
@@ -34,18 +35,29 @@
     <p id="message"> </p>
   </div>
 <script>
+function $_(iid){return document.getElementById(iid);}
 var ws = null;
 document.getElementById("connect").addEventListener("click", function(){
   this.disabled = true;
+  this.value = "Connected";
   var svraddr = document.getElementById("svraddr").value;
   var svrport = document.getElementById("svrport").value;
   ws = new WebSocket("ws://" + svraddr + ":" + svrport);
   ws.onopen = function(e) {
     console.log('Connected to: ' + e.currentTarget.url);
   };
+  ws.onerror = function(e) {
+    $_("message").innerHTML = e.data;
+  };
   ws.onmessage = function(e) {
     var message = e.data;
-    document.getElementById("message").innerHTML = message;
+    $_("message").innerHTML = message;
+  };
+  ws.onclose = function(e) {
+    $_("message").innerHTML = "Connection Closed.";
+    ws = null;
+    $_("connect").disabled = false;
+    $_("connect").value = "Connect";
   };
 });
 function sendCommand(){
