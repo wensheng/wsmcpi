@@ -1,10 +1,6 @@
 package org.wensheng.wsmcpi;
 
-import org.bukkit.Bukkit;
-import org.bukkit.Server;
-import org.bukkit.World;
-import org.bukkit.Location;
-import org.bukkit.Material;
+import org.bukkit.*;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
@@ -20,7 +16,10 @@ import org.java_websocket.WebSocket;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.*;
+import java.lang.reflect.*;
 
 //import org.bukkit.material.Directional;
 
@@ -111,8 +110,29 @@ public class RemoteSession {
         try {
             Server server = plugin.getServer();
             World world = origin.getWorld();
-            
-            if (c.equals("world.getBlock")) {
+
+            // TODO: attachedPlayer no good
+            if (c.equals("defFunc")){
+                if(plugin.sqlconn == null || attachedPlayer == null){
+                    return;
+                }
+                String sql = "INSERT INTO playerfuncs(player,funcname,functext) VALUES(?,?,?)";
+                try (PreparedStatement pstmt = plugin.sqlconn.prepareStatement(sql)) {
+                    pstmt.setString(1, attachedPlayer.getName());
+                    pstmt.setString(2, args[0]);
+                    pstmt.setString(3, args[1]);
+                    pstmt.executeUpdate();
+                    List curList = plugin.userFunctions.get(attachedPlayer.getName());
+                    if(curList != null){
+                        curList.add(args[0]);
+                    }else{
+                        curList = Arrays.asList(args[0]);
+                    }
+                    plugin.userFunctions.put(attachedPlayer.getName(), curList);
+                } catch (SQLException e) {
+                    System.out.println(e.getMessage());
+                }
+            } else if (c.equals("world.getBlock")) {
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
                 send(world.getBlockAt(loc).getType().name());
             } else if (c.equals("world.getBlocks")) {
@@ -124,6 +144,7 @@ public class RemoteSession {
                 Block block = world.getBlockAt(loc);
                 send(block.getType().name() + "," + block.getBlockData());
             } else if (c.equals("world.setBlock")) {
+                // setBlock can set water and lava
                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
                 Material material = Material.matchMaterial(args[3]);
                 if(material == null){
@@ -204,15 +225,77 @@ public class RemoteSession {
                 }
                 send(result.toString());
             }else if (c.equals("world.spawnEntity")) {
-                 Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
-                 EntityType entityType;
-                 try{
-                     entityType = EntityType.valueOf(args[3].toUpperCase());
-                 }catch(Exception exc){
-                     entityType = EntityType.valueOf("COW");
-                 }
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                EntityType entityType;
+                try {
+                    entityType = EntityType.valueOf(args[3].toUpperCase());
+                } catch (Exception exc) {
+                    entityType = EntityType.valueOf("COW");
+                }
                 Entity entity = world.spawnEntity(loc, entityType);
-                 send(entity.getUniqueId());
+                send(entity.getUniqueId());
+            } else if(c.equals("world.spawnParticle")){
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                Particle particle;
+                try{
+                    particle = Particle.valueOf(args[3].toUpperCase());
+                }catch(Exception exc){
+                    particle = Particle.EXPLOSION_NORMAL;
+                }
+                int count = args.length > 4? Integer.parseInt(args[4]): 1;
+                double length = args.length > 5? Double.parseDouble(args[5]): 1.0;
+                world.spawnParticle(particle, loc, count);
+            } else if(c.equals("world.playSound")){
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                Sound sound;
+                try {
+                    sound = Sound.valueOf(args[3].toUpperCase());
+                }catch(Exception exc){
+                    sound = Sound.BLOCK_BELL_USE;
+                }
+                world.playSound(loc, sound, (float)8.0, (float)1.0);
+
+            /* world.playEffect is superseded by spawnParticle
+               world.
+                 dropItem
+                 spawnFallingBlock
+                 spawnArrow?
+                 createExplosion
+                 generateTree
+               are not possible because they cause:
+               "java.lang.IllegalStateException: Asynchronous entity add!/
+                                                       Chunk getEntities call!/
+                                                       block remove!
+                                                       "
+            } else if (c.equals("world.spawnBlock")) {
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                Material material = Material.matchMaterial(args[3]);
+                if(material == null){
+                    material = Material.valueOf("SANDSTONE");
+                }
+                world.spawnFallingBlock(loc, material.createBlockData());
+            } else if(c.equals("world.generateTree")){
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                TreeType tt;
+                try {
+                    tt = TreeType.valueOf(args[3].toUpperCase());
+                }catch(Exception exc){
+                    tt = TreeType.BIG_TREE;
+                }
+                if(world.generateTree(loc, tt) == false){
+                    send("Could not generate tree");
+                }
+            }else if (c.equals("world.dropItem")) {
+                Location loc = parseRelativeBlockLocation(args[0], args[1], args[2]);
+                Material material = Material.matchMaterial(args[3]);
+                if(material == null){
+                    material = Material.valueOf("SANDSTONE");
+                }
+                int quantity = args.length > 4? Integer.parseInt(args[4]): 1;
+                ItemStack itemStack = new ItemStack(material, quantity);
+                Item item = world.dropItemNaturally(loc, itemStack);
+                send(item.getUniqueId());
+                */
             } else if (c.equals("world.getHeight")) {
                 send(world.getHighestBlockYAt(parseRelativeBlockLocation(args[0], "0", args[1])) - origin.getBlockY());
             } else if (c.equals("chat.post")) {
@@ -296,6 +379,8 @@ public class RemoteSession {
             currentPlayer.teleport(parseRelativeBlockLocation(x, y, z, loc.getPitch(), loc.getYaw()));
         } else if (c.equals("getPos")) {
             send(locationToRelative(currentPlayer.getLocation()));
+        } else if (c.equals("getLoc")) {
+            send(currentPlayer.getLocation());
         } else if (c.equals("setPos")) {
             String x = args[0], y = args[1], z = args[2];
             if (args.length > 3) {

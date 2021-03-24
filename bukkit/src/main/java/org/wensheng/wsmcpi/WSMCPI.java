@@ -1,15 +1,14 @@
 package org.wensheng.wsmcpi;
 
+import java.sql.*;
+import java.util.*;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.EnumSet;
-import java.util.Set;
 import java.util.logging.Logger;
-
 import com.sun.net.httpserver.HttpServer;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -34,6 +33,8 @@ public class WSMCPI extends JavaPlugin implements Listener{
     private WSServer wsServer = null;
     private final int httpServerPort = 8686;
     private HttpServer httpServer = null;
+    HashMap<String, List<String>> userFunctions = new HashMap<>();
+    Connection sqlconn = null;
     
     public void onEnable(){
         this.saveDefaultConfig();
@@ -43,8 +44,11 @@ public class WSMCPI extends JavaPlugin implements Listener{
         if(wss_port==0){
             wss_port = 4721;
         }
-        wsServer = new WSServer(this, wss_port);
-        wsServer.start();
+
+        if(wsServer == null) {
+            wsServer = new WSServer(this, wss_port);
+            wsServer.start();
+        }
 
         //register the events
         getServer().getPluginManager().registerEvents(this, this);
@@ -52,6 +56,21 @@ public class WSMCPI extends JavaPlugin implements Listener{
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new TickHandler(), 1, 1);
         if(getConfig().getBoolean("start_http_server")) {
             createHttpServer();
+        }
+        String url = String.format("jdbc:sqlite:%s/%s", getDataFolder().toString(), "db.sqlite");
+        // create a connection to the database
+        try {
+            sqlconn = DriverManager.getConnection(url);
+            String sql = "CREATE TABLE IF NOT EXISTS playerfuncs (\n"
+                         + "    id integer primary key,\n"
+                         + "    player text NOT NULL,\n"
+                         + "    funcname text,\n"
+                         + "    functext text\n"
+                         + ");";
+            Statement stmt = sqlconn.createStatement();
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            logger.warning(e.getMessage());
         }
     }
 
@@ -121,6 +140,29 @@ public class WSMCPI extends JavaPlugin implements Listener{
         for(RemoteSession session: wsServer.getHandlers().values()){
             session.queueChatPostedEvent(event);
         }
+    }
+
+    @EventHandler
+    public void onChat(AsyncPlayerChatEvent event) {
+        String newMessage = event.getMessage().toLowerCase();
+        String[] msgs = event.getMessage().split(" ");
+        Player p = event.getPlayer();
+        if(userFunctions.containsKey(p.getName())) {
+            if (userFunctions.get(p.getName()).contains(msgs[0])) {
+                String sql = String.format("select functext from playerfuncs \n"
+                        + "where player='%s' and funcname='%s'", p.getName(), msgs[0]);
+                try (Statement stmt = sqlconn.createStatement();
+                     ResultSet rs = stmt.executeQuery(sql)) {
+                    if (rs.next()) {
+                        logger.info(String.format("%s issued function: %s", p.getName(), rs.getString("functext")));
+                        // TODO: execute user defined functions
+                    }
+                } catch (SQLException e) {
+                    logger.warning(e.getMessage());
+                }
+            }
+        }
+        //event.setMessage(newMessage);
     }
 
     Player getNamedPlayer(String name) {
