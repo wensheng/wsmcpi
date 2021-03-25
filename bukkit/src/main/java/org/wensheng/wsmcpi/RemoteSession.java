@@ -116,11 +116,12 @@ public class RemoteSession {
                 if(plugin.sqlconn == null || attachedPlayer == null){
                     return;
                 }
-                String sql = "INSERT INTO playerfuncs(player,funcname,functext) VALUES(?,?,?)";
+                String funcbody = String.join(",", Arrays.copyOfRange(args, 1, args.length));
+                String sql = "REPLACE INTO playerfuncs(player,funcname,functext) VALUES(?,?,?)";
                 try (PreparedStatement pstmt = plugin.sqlconn.prepareStatement(sql)) {
                     pstmt.setString(1, attachedPlayer.getName());
                     pstmt.setString(2, args[0]);
-                    pstmt.setString(3, args[1]);
+                    pstmt.setString(3, funcbody);
                     pstmt.executeUpdate();
                     List curList = plugin.userFunctions.get(attachedPlayer.getName());
                     if(curList != null){

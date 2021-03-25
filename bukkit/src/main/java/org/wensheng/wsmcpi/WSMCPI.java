@@ -18,6 +18,8 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -35,7 +37,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
     private HttpServer httpServer = null;
     HashMap<String, List<String>> userFunctions = new HashMap<>();
     Connection sqlconn = null;
-    
+
     public void onEnable(){
         this.saveDefaultConfig();
         save_resources();
@@ -51,6 +53,7 @@ public class WSMCPI extends JavaPlugin implements Listener{
         }
 
         //register the events
+        //Bukkit.getPluginManager().registerEvents(this,this);
         getServer().getPluginManager().registerEvents(this, this);
         //setup the schedule to called the tick handler
         getServer().getScheduler().scheduleSyncRepeatingTask(this, new TickHandler(), 1, 1);
@@ -148,21 +151,67 @@ public class WSMCPI extends JavaPlugin implements Listener{
         String[] msgs = event.getMessage().split(" ");
         Player p = event.getPlayer();
         if(userFunctions.containsKey(p.getName())) {
-            if (userFunctions.get(p.getName()).contains(msgs[0])) {
+            List ufs = userFunctions.get(p.getName());
+            if (ufs.contains(msgs[0])) {
+                if(msgs[0].equals("myfuncs")){
+                    if(msgs.length > 1 && msgs[1].equals("clear")){
+                        String sql = "delete from playerfuncs where player=?";
+                        try (PreparedStatement stmt = sqlconn.prepareStatement(sql)) {
+                            stmt.setString(1, p.getName());
+                            stmt.executeUpdate();
+                            userFunctions.put(p.getName(), new ArrayList<>(Arrays.asList("myfuncs")));
+                        } catch (SQLException e) {
+                            logger.warning(e.getMessage());
+                            return;
+                        }
+                    }else {
+                        p.sendMessage(String.join(" ", ufs));
+                    }
+                    return;
+                }
+                String cmdStr = "";
                 String sql = String.format("select functext from playerfuncs \n"
                         + "where player='%s' and funcname='%s'", p.getName(), msgs[0]);
                 try (Statement stmt = sqlconn.createStatement();
-                     ResultSet rs = stmt.executeQuery(sql)) {
+                    ResultSet rs = stmt.executeQuery(sql)) {
                     if (rs.next()) {
-                        logger.info(String.format("%s issued function: %s", p.getName(), rs.getString("functext")));
-                        // TODO: execute user defined functions
+                        cmdStr = rs.getString("functext");
                     }
                 } catch (SQLException e) {
                     logger.warning(e.getMessage());
+                    return;
                 }
+                new PlayerFuncExecutor(this, p, cmdStr).runTaskLater(this, 2);
             }
         }
         //event.setMessage(newMessage);
+    }
+
+    @EventHandler
+    public void onJoin(PlayerJoinEvent event){
+        Player p = event.getPlayer();
+        List fNames = new ArrayList<String>();
+        fNames.add("myfuncs");
+        userFunctions.put(p.getName(), fNames);
+
+        String sql = String.format("select funcname from playerfuncs \n"
+                + "where player='%s'", p.getName());
+        try (Statement stmt = sqlconn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            while (rs.next()) {
+                fNames.add(rs.getString("funcname"));
+            }
+        } catch (SQLException e) {
+            logger.warning(e.getMessage());
+            return;
+        }
+        userFunctions.put(p.getName(), fNames);
+    }
+
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
+        Player p = event.getPlayer();
+        userFunctions.remove(p.getName());
     }
 
     Player getNamedPlayer(String name) {

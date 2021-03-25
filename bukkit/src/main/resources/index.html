@@ -44,7 +44,8 @@ document.getElementById("connect").addEventListener("click", function(){
   var svrport = document.getElementById("svrport").value;
   ws = new WebSocket("ws://" + svraddr + ":" + svrport);
   ws.onopen = function(e) {
-    console.log('Connected to: ' + e.currentTarget.url);
+    setTimeout(function(){ ws.send("player.getPos()") }, 100);
+    console.log("WS connected to " + e.currentTarget.url);
   };
   ws.onerror = function(e) {
     $_("message").innerHTML = e.data;
